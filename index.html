@@ -321,6 +321,33 @@ AFRAME.registerComponent('starfield', {
   border-radius: 20px; font-size: 13px; pointer-events: none;
   z-index: 1000; border: 1px solid #334488; white-space: nowrap;
 }
+/* Molecule click buttons */
+#btn-ldopa-click {
+  position: fixed; left: 22%; top: 52%;
+  pointer-events: all; cursor: pointer; border: none;
+  border-radius: 50px; padding: 13px 24px;
+  font-size: 15px; font-weight: bold;
+  background: linear-gradient(135deg, #1a6b1a, #33dd33);
+  color: #fff; box-shadow: 0 0 22px #33dd3399;
+  transition: transform 0.15s; z-index: 999;
+}
+#btn-ddopa-click {
+  position: fixed; right: 22%; top: 52%;
+  pointer-events: all; cursor: pointer; border: none;
+  border-radius: 50px; padding: 13px 24px;
+  font-size: 15px; font-weight: bold;
+  background: linear-gradient(135deg, #6b1a1a, #ee3333);
+  color: #fff; box-shadow: 0 0 22px #ee333399;
+  transition: transform 0.15s; z-index: 999;
+}
+#btn-ldopa-click:hover, #btn-ddopa-click:hover { transform: scale(1.08); }
+#btn-ldopa-click:active, #btn-ddopa-click:active { transform: scale(0.95); }
+#status-bar {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+  background: rgba(10,10,40,0.88); color: #ffffff; padding: 9px 22px;
+  border-radius: 20px; font-size: 14px; pointer-events: none;
+  z-index: 1000; border: 1px solid #334488; display: none;
+}
 </style>
 </head>
 <body>
@@ -498,12 +525,81 @@ AFRAME.registerComponent('starfield', {
   </div>
 </div>
 
-<div id="hint-bar">🖱 WASD + mouse to move &nbsp;|&nbsp; Click ℹ️ buttons for info</div>
+<button id="btn-ldopa-click" onclick="triggerLDopa()">🟢 Bind L-DOPA</button>
+<button id="btn-ddopa-click" onclick="triggerDDopa()">🔴 Repel D-DOPA</button>
+<div id="status-bar"></div>
+<div id="hint-bar">🖱 WASD + mouse to move &nbsp;|&nbsp; Use buttons above to interact</div>
 
 <script>
 function toggleInfo(id) {
   const el = document.getElementById(id);
   el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+function setStatus(msg, color) {
+  const s = document.getElementById('status-bar');
+  s.textContent = msg;
+  s.style.color = color || '#ffffff';
+  s.style.display = 'block';
+  if (window._statusTimer) clearTimeout(window._statusTimer);
+  window._statusTimer = setTimeout(() => { s.style.display = 'none'; }, 4000);
+}
+
+function triggerLDopa() {
+  const el = document.querySelector('#ldopa');
+  if (!el || el.dataset.busy === 'true') return;
+  el.dataset.busy = 'true';
+  document.getElementById('btn-ldopa-click').disabled = true;
+  setStatus('L-DOPA flying into active site...', '#88ffaa');
+
+  el.setAttribute('animation__fly',    {property:'position', to:'0 1.5 -4.3', dur:2000, easing:'easeInOutQuad'});
+  el.setAttribute('animation__shrink', {property:'scale',    to:'0.35 0.35 0.35', dur:2000, easing:'easeInOutQuad'});
+  el.setAttribute('animation__spin',   {property:'rotation', to:'0 720 0', dur:2000, easing:'easeInOutQuad'});
+
+  setTimeout(() => {
+    const g = document.querySelector('#binding-glow');
+    if (g) g.setAttribute('visible', true);
+    setStatus('✅ BOUND! L-DOPA fits perfectly into the active site!', '#44ff88');
+  }, 1900);
+
+  setTimeout(() => {
+    const g = document.querySelector('#binding-glow');
+    if (g) g.setAttribute('visible', false);
+    el.setAttribute('animation__reset',      {property:'position', to:'-3.8 1.8 -3', dur:1100, easing:'easeInOutQuad'});
+    el.setAttribute('animation__resetscale', {property:'scale',    to:'1 1 1', dur:1100});
+    el.setAttribute('animation__resetrot',   {property:'rotation', to:'0 0 0', dur:1100});
+    setTimeout(() => {
+      el.dataset.busy = 'false';
+      document.getElementById('btn-ldopa-click').disabled = false;
+    }, 1200);
+  }, 4200);
+}
+
+function triggerDDopa() {
+  const el = document.querySelector('#ddopa');
+  if (!el || el.dataset.busy === 'true') return;
+  el.dataset.busy = 'true';
+  document.getElementById('btn-ddopa-click').disabled = true;
+  setStatus('D-DOPA approaching active site...', '#ffaa88');
+
+  el.setAttribute('animation__approach', {property:'position', to:'1 1.6 -4', dur:650, easing:'easeOutQuad'});
+
+  setTimeout(() => {
+    const f = document.querySelector('#repel-flash');
+    if (f) { f.setAttribute('visible', true); setTimeout(() => f.setAttribute('visible', false), 350); }
+    el.setAttribute('animation__bounce', {property:'position', to:'5.4 2.7 -1.8', dur:600, easing:'easeOutQuad'});
+    el.setAttribute('animation__shake',  {property:'rotation', to:'25 720 -25',   dur:1000, easing:'easeOutQuad'});
+    setStatus('❌ REJECTED! D-DOPA clashes with the active site!', '#ff6644');
+  }, 650);
+
+  setTimeout(() => {
+    el.setAttribute('animation__return',    {property:'position', to:'3.8 1.8 -3', dur:1100, easing:'easeInOutQuad'});
+    el.setAttribute('animation__returnrot', {property:'rotation', to:'0 0 0', dur:1100});
+    setTimeout(() => {
+      el.dataset.busy = 'false';
+      document.getElementById('btn-ddopa-click').disabled = false;
+    }, 1200);
+  }, 2300);
 }
 </script>
 </body>
