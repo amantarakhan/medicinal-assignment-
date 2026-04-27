@@ -4,219 +4,236 @@
 <meta charset="UTF-8">
 <title>L-DOPA Binding to DOPA Decarboxylase - VR</title>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-<style>
-  body { margin: 0; font-family: sans-serif; overflow: hidden; }
-
-  /* Overlay UI - sits on top of the A-Frame canvas */
-  #ui-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 999;
-  }
-
-  .mol-btn {
-    position: absolute;
-    pointer-events: all;
-    cursor: pointer;
-    border: none;
-    border-radius: 12px;
-    padding: 12px 22px;
-    font-size: 15px;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-    transition: transform 0.15s, box-shadow 0.15s;
-    box-shadow: 0 0 18px rgba(0,0,0,0.5);
-  }
-  .mol-btn:hover { transform: scale(1.08); }
-  .mol-btn:active { transform: scale(0.96); }
-
-  #btn-ldopa {
-    left: 18%; top: 55%;
-    background: linear-gradient(135deg, #1a6b1a, #33dd33);
-    color: #fff;
-    box-shadow: 0 0 20px #33dd3388;
-  }
-  #btn-ddopa {
-    right: 18%; top: 55%;
-    background: linear-gradient(135deg, #6b1a1a, #ee3333);
-    color: #fff;
-    box-shadow: 0 0 20px #ee333388;
-  }
-  #btn-linfo {
-    left: 15%; top: 65%;
-    background: rgba(20,60,20,0.92);
-    color: #bbffbb;
-    border: 1px solid #33dd3366;
-    font-size: 13px;
-  }
-  #btn-dinfo {
-    right: 15%; top: 65%;
-    background: rgba(60,20,20,0.92);
-    color: #ffbbbb;
-    border: 1px solid #ee333366;
-    font-size: 13px;
-  }
-
-  /* Info panels */
-  .info-panel {
-    position: absolute;
-    pointer-events: all;
-    border-radius: 14px;
-    padding: 18px 22px;
-    font-size: 14px;
-    line-height: 1.6;
-    display: none;
-    max-width: 220px;
-    box-shadow: 0 0 30px rgba(0,0,0,0.7);
-  }
-  #panel-linfo {
-    left: 10%; top: 20%;
-    background: rgba(8, 28, 12, 0.96);
-    color: #cfffcf;
-    border: 1px solid #33dd3355;
-  }
-  #panel-dinfo {
-    right: 10%; top: 20%;
-    background: rgba(28, 8, 8, 0.96);
-    color: #ffcfcf;
-    border: 1px solid #ee333355;
-  }
-  .info-panel h3 { margin: 0 0 10px; font-size: 16px; }
-  .close-btn {
-    float: right;
-    background: none;
-    border: none;
-    color: inherit;
-    font-size: 18px;
-    cursor: pointer;
-    margin-left: 10px;
-    pointer-events: all;
-  }
-
-  /* Status message */
-  #status-msg {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(10,10,40,0.85);
-    color: #88aaff;
-    padding: 10px 24px;
-    border-radius: 20px;
-    font-size: 14px;
-    pointer-events: none;
-    z-index: 1000;
-    border: 1px solid #334488;
-    text-align: center;
-  }
-
-  /* Crosshair */
-  #crosshair {
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 16px; height: 16px;
-    pointer-events: none;
-    z-index: 998;
-  }
-  #crosshair::before, #crosshair::after {
-    content: '';
-    position: absolute;
-    background: rgba(255,255,255,0.7);
-    border-radius: 2px;
-  }
-  #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
-  #crosshair::after  { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
-</style>
-
+<style>body{margin:0;font-family:sans-serif;}</style>
 <script>
-// Helper functions
 function bondRotEuler(p1, p2) {
   const dir = new THREE.Vector3(p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]).normalize();
   const up = new THREE.Vector3(0, 1, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
   const euler = new THREE.Euler().setFromQuaternion(quat, 'XYZ');
-  return [THREE.MathUtils.radToDeg(euler.x), THREE.MathUtils.radToDeg(euler.y), THREE.MathUtils.radToDeg(euler.z)];
+  return [
+    THREE.MathUtils.radToDeg(euler.x),
+    THREE.MathUtils.radToDeg(euler.y),
+    THREE.MathUtils.radToDeg(euler.z)
+  ];
 }
 function bondLength(p1, p2) {
-  const dx=p2[0]-p1[0], dy=p2[1]-p1[1], dz=p2[2]-p1[2];
-  return Math.sqrt(dx*dx+dy*dy+dz*dz);
+  const dx = p2[0]-p1[0], dy = p2[1]-p1[1], dz = p2[2]-p1[2];
+  return Math.sqrt(dx*dx + dy*dy + dz*dz);
 }
 function bondMid(p1, p2) {
-  return [(p1[0]+p2[0])/2,(p1[1]+p2[1])/2,(p1[2]+p2[2])/2];
+  return [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2];
 }
 
 AFRAME.registerComponent('dopa-molecule', {
-  schema: { chirality: {type:'string', default:'L'}, carbonColor: {type:'color', default:'#33dd33'} },
+  schema: {
+    chirality: {type: 'string', default: 'L'},
+    carbonColor: {type: 'color', default: '#33dd33'}
+  },
   init: function () {
     const isL = this.data.chirality === 'L';
-    const cC = this.data.carbonColor, oC='#ff5252', nC='#5599ff', hC='#ffffff', chiralC='#ffd633';
+    const cC = this.data.carbonColor;
+    const oC = '#ff5252';
+    const nC = '#5599ff';
+    const hC = '#ffffff';
+    const chiralC = '#ffd633';
+
     const atoms = {
-      C1:     {pos:[0.45,0.0,0],    color:cC, r:0.10},
-      C2:     {pos:[0.22,0.40,0],   color:cC, r:0.10},
-      C3:     {pos:[-0.22,0.40,0],  color:cC, r:0.10},
-      C4:     {pos:[-0.45,0.0,0],   color:cC, r:0.10},
-      C5:     {pos:[-0.22,-0.40,0], color:cC, r:0.10},
-      C6:     {pos:[0.22,-0.40,0],  color:cC, r:0.10},
-      O3:     {pos:[-0.40,0.78,0],  color:oC, r:0.09, label:'OH'},
-      O4:     {pos:[-0.85,0.0,0],   color:oC, r:0.09, label:'OH'},
-      CH2:    {pos:[0.78,-0.40,0],  color:cC, r:0.10},
-      Cstar:  {pos:[1.10,-0.05,0],  color:chiralC, r:0.12, label:'C*'},
-      NH2:    {pos:isL?[1.05,0.45,0.20]:[1.05,0.45,-0.20], color:nC, r:0.10, label:'NH2'},
-      Hstar:  {pos:isL?[1.05,0.45,-0.20]:[1.05,0.45,0.20], color:hC, r:0.06, label:'H'},
-      COOH_C: {pos:[1.55,-0.30,0],  color:cC, r:0.10},
-      COOH_O1:{pos:[1.85,0.05,0],   color:oC, r:0.09, label:'COOH'},
-      COOH_O2:{pos:[1.65,-0.75,0],  color:oC, r:0.09}
+      C1:    {pos: [0.45, 0.0, 0],   color: cC, r: 0.10},
+      C2:    {pos: [0.22, 0.40, 0],  color: cC, r: 0.10},
+      C3:    {pos: [-0.22, 0.40, 0], color: cC, r: 0.10},
+      C4:    {pos: [-0.45, 0.0, 0],  color: cC, r: 0.10},
+      C5:    {pos: [-0.22, -0.40,0], color: cC, r: 0.10},
+      C6:    {pos: [0.22, -0.40,0],  color: cC, r: 0.10},
+      O3:    {pos: [-0.40, 0.78, 0], color: oC, r: 0.09, label:'OH'},
+      O4:    {pos: [-0.85, 0.0, 0],  color: oC, r: 0.09, label:'OH'},
+      CH2:   {pos: [0.78, -0.40, 0], color: cC, r: 0.10},
+      Cstar: {pos: [1.10, -0.05, 0], color: chiralC, r: 0.12, label:'C*'},
+      NH2:   {pos: isL ? [1.05, 0.45, 0.20] : [1.05, 0.45, -0.20],
+              color: nC, r: 0.10, label:'NH2'},
+      Hstar: {pos: isL ? [1.05, 0.45, -0.20] : [1.05, 0.45, 0.20],
+              color: hC, r: 0.06, label:'H'},
+      COOH_C:{pos: [1.55, -0.30, 0], color: cC, r: 0.10},
+      COOH_O1:{pos:[1.85, 0.05, 0],  color: oC, r: 0.09, label:'COOH'},
+      COOH_O2:{pos:[1.65, -0.75, 0], color: oC, r: 0.09}
     };
+
     const bonds = [
       ['C1','C2'],['C2','C3'],['C3','C4'],['C4','C5'],['C5','C6'],['C6','C1'],
-      ['C3','O3'],['C4','O4'],['C1','CH2'],['CH2','Cstar'],
+      ['C3','O3'],['C4','O4'],
+      ['C1','CH2'],['CH2','Cstar'],
       ['Cstar','NH2'],['Cstar','Hstar'],['Cstar','COOH_C'],
       ['COOH_C','COOH_O1'],['COOH_C','COOH_O2']
     ];
-    Object.entries(atoms).forEach(([k,a]) => {
+
+    Object.entries(atoms).forEach(([k, a]) => {
       const s = document.createElement('a-sphere');
       s.setAttribute('position', a.pos.join(' '));
       s.setAttribute('radius', a.r);
       s.setAttribute('color', a.color);
-      s.setAttribute('material','metalness:0.15;roughness:0.5');
+      s.setAttribute('material', 'metalness: 0.15; roughness: 0.5');
+      s.classList.add('clickable');
+      s.addEventListener('click', (e) => { e.stopPropagation(); this.el.emit('click'); });
       this.el.appendChild(s);
       if (a.label) {
         const t = document.createElement('a-text');
         t.setAttribute('value', a.label);
         t.setAttribute('position', `${a.pos[0]} ${a.pos[1]+0.22} ${a.pos[2]+0.05}`);
-        t.setAttribute('align','center'); t.setAttribute('color','#ffffff');
-        t.setAttribute('width',1.4); t.setAttribute('scale','0.4 0.4 0.4');
+        t.setAttribute('align', 'center');
+        t.setAttribute('color', '#ffffff');
+        t.setAttribute('width', 1.4);
+        t.setAttribute('scale', '0.4 0.4 0.4');
         this.el.appendChild(t);
       }
     });
-    bonds.forEach(([a,b]) => {
-      const p1=atoms[a].pos, p2=atoms[b].pos;
+
+    bonds.forEach(([a, b]) => {
+      const p1 = atoms[a].pos, p2 = atoms[b].pos;
       const cyl = document.createElement('a-cylinder');
-      cyl.setAttribute('position', bondMid(p1,p2).join(' '));
-      cyl.setAttribute('rotation', bondRotEuler(p1,p2).join(' '));
-      cyl.setAttribute('height', bondLength(p1,p2));
+      cyl.setAttribute('position', bondMid(p1, p2).join(' '));
+      cyl.setAttribute('rotation', bondRotEuler(p1, p2).join(' '));
+      cyl.setAttribute('height', bondLength(p1, p2));
       cyl.setAttribute('radius', 0.028);
-      cyl.setAttribute('color','#dddddd');
-      cyl.setAttribute('material','metalness:0.1;roughness:0.6');
+      cyl.setAttribute('color', '#dddddd');
+      cyl.setAttribute('material', 'metalness: 0.1; roughness: 0.6');
+      cyl.classList.add('clickable');
+      cyl.addEventListener('click', (e) => { e.stopPropagation(); this.el.emit('click'); });
       this.el.appendChild(cyl);
     });
+
     const lab = document.createElement('a-text');
     lab.setAttribute('value', `${this.data.chirality}-DOPA`);
-    lab.setAttribute('position','0.4 -1.05 0');
-    lab.setAttribute('align','center');
+    lab.setAttribute('position', '0.4 -1.05 0');
+    lab.setAttribute('align', 'center');
     lab.setAttribute('color', cC);
-    lab.setAttribute('width',5);
+    lab.setAttribute('width', 5);
     this.el.appendChild(lab);
   }
 });
 
-AFRAME.registerComponent('gradient-sky', {
-  schema: { topColor:{type:'color',default:'#1a1a5a'}, bottomColor:{type:'color',default:'#000010'} },
+AFRAME.registerComponent('ldopa-binding', {
   init: function () {
-    const geometry = new THREE.SphereGeometry(500,32,16);
+    const el = this.el;
+    const sp = el.getAttribute('position');
+    const startStr = `${sp.x} ${sp.y} ${sp.z}`;
+    let busy = false;
+    el.addEventListener('click', function () {
+      if (busy) return;
+      busy = true;
+      el.setAttribute('animation__fly', {
+        property: 'position', to: '0 1.5 -4.3',
+        dur: 2000, easing: 'easeInOutQuad'
+      });
+      el.setAttribute('animation__shrink', {
+        property: 'scale', to: '0.35 0.35 0.35',
+        dur: 2000, easing: 'easeInOutQuad'
+      });
+      el.setAttribute('animation__spin', {
+        property: 'rotation', to: '0 720 0',
+        dur: 2000, easing: 'easeInOutQuad'
+      });
+      setTimeout(() => {
+        const g = document.querySelector('#binding-glow');
+        if (g) g.setAttribute('visible', true);
+      }, 1900);
+      setTimeout(() => {
+        const g = document.querySelector('#binding-glow');
+        if (g) g.setAttribute('visible', false);
+        el.setAttribute('animation__reset', {
+          property: 'position', to: startStr,
+          dur: 1100, easing: 'easeInOutQuad'
+        });
+        el.setAttribute('animation__resetscale', {
+          property: 'scale', to: '1 1 1', dur: 1100
+        });
+        el.setAttribute('animation__resetrot', {
+          property: 'rotation', to: '0 0 0', dur: 1100
+        });
+        setTimeout(() => { busy = false; }, 1200);
+      }, 4200);
+    });
+  }
+});
+
+AFRAME.registerComponent('ddopa-repel', {
+  init: function () {
+    const el = this.el;
+    const sp = el.getAttribute('position');
+    const startStr = `${sp.x} ${sp.y} ${sp.z}`;
+    let busy = false;
+    el.addEventListener('click', function () {
+      if (busy) return;
+      busy = true;
+      el.setAttribute('animation__approach', {
+        property: 'position', to: '1 1.6 -4',
+        dur: 650, easing: 'easeOutQuad'
+      });
+      setTimeout(() => {
+        const f = document.querySelector('#repel-flash');
+        if (f) {
+          f.setAttribute('visible', true);
+          setTimeout(() => f.setAttribute('visible', false), 350);
+        }
+        el.setAttribute('animation__bounce', {
+          property: 'position',
+          to: `${sp.x + 1.6} ${sp.y + 0.9} ${sp.z + 1.2}`,
+          dur: 600, easing: 'easeOutQuad'
+        });
+        el.setAttribute('animation__shake', {
+          property: 'rotation', to: '25 720 -25',
+          dur: 1000, easing: 'easeOutQuad'
+        });
+      }, 650);
+      setTimeout(() => {
+        el.setAttribute('animation__return', {
+          property: 'position', to: startStr,
+          dur: 1100, easing: 'easeInOutQuad'
+        });
+        el.setAttribute('animation__returnrot', {
+          property: 'rotation', to: '0 0 0', dur: 1100
+        });
+        setTimeout(() => { busy = false; }, 1200);
+      }, 2300);
+    });
+  }
+});
+
+AFRAME.registerComponent('toggle-target', {
+  schema: {target: {type: 'selector'}},
+  init: function () {
+    this.el.addEventListener('click', () => {
+      const t = this.data.target;
+      if (!t) return;
+      t.setAttribute('visible', !t.getAttribute('visible'));
+    });
+  }
+});
+
+AFRAME.registerComponent('grid-floor', {
+  schema: {
+    size: {default: 50}, divisions: {default: 50},
+    color1: {type: 'color', default: '#3355cc'},
+    color2: {type: 'color', default: '#22337a'}
+  },
+  init: function () {
+    const grid = new THREE.GridHelper(
+      this.data.size, this.data.divisions,
+      new THREE.Color(this.data.color1),
+      new THREE.Color(this.data.color2)
+    );
+    grid.material.transparent = true;
+    grid.material.opacity = 0.55;
+    this.el.setObject3D('grid', grid);
+  }
+});
+
+AFRAME.registerComponent('gradient-sky', {
+  schema: {
+    topColor: {type: 'color', default: '#1a1a5a'},
+    bottomColor: {type: 'color', default: '#000010'}
+  },
+  init: function () {
+    const geometry = new THREE.SphereGeometry(500, 32, 16);
     const material = new THREE.ShaderMaterial({
       uniforms: {
         topColor:    {value: new THREE.Color(this.data.topColor)},
@@ -224,247 +241,191 @@ AFRAME.registerComponent('gradient-sky', {
         offset:      {value: 0},
         exponent:    {value: 0.7}
       },
-      vertexShader: `varying vec3 vWorldPosition;
-        void main(){vec4 wp=modelMatrix*vec4(position,1.0);vWorldPosition=wp.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      fragmentShader: `uniform vec3 topColor;uniform vec3 bottomColor;uniform float offset;uniform float exponent;varying vec3 vWorldPosition;
-        void main(){float h=normalize(vWorldPosition+offset).y;gl_FragColor=vec4(mix(bottomColor,topColor,max(pow(max(h,0.0),exponent),0.0)),1.0);}`,
-      side: THREE.BackSide, depthWrite: false
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = wp.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition + offset).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor,
+                              max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }`,
+      side: THREE.BackSide,
+      depthWrite: false
     });
-    this.el.setObject3D('mesh', new THREE.Mesh(geometry, material));
+    const sky = new THREE.Mesh(geometry, material);
+    this.el.setObject3D('mesh', sky);
   }
 });
 
 AFRAME.registerComponent('starfield', {
-  schema: {count:{default:250}},
+  schema: {count: {default: 250}},
   init: function () {
     const group = new THREE.Group();
-    for (let i=0;i<this.data.count;i++){
-      const r=120+Math.random()*200, theta=Math.random()*Math.PI*2, phi=Math.acos(2*Math.random()-1);
-      const star = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3+Math.random()*0.7,5,5),
-        new THREE.MeshBasicMaterial({color:0xffffff})
-      );
-      star.position.set(r*Math.sin(phi)*Math.cos(theta), Math.abs(r*Math.cos(phi))*0.8+5, r*Math.sin(phi)*Math.sin(theta));
+    for (let i = 0; i < this.data.count; i++) {
+      const r = 120 + Math.random() * 200;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = Math.abs(r * Math.cos(phi)) * 0.8 + 5;
+      const z = r * Math.sin(phi) * Math.sin(theta);
+      const g = new THREE.SphereGeometry(0.3 + Math.random() * 0.7, 5, 5);
+      const m = new THREE.MeshBasicMaterial({color: 0xffffff});
+      const star = new THREE.Mesh(g, m);
+      star.position.set(x, y, z);
       group.add(star);
     }
     this.el.setObject3D('stars', group);
   }
 });
-
-AFRAME.registerComponent('grid-floor', {
-  schema: {size:{default:50},divisions:{default:50},color1:{type:'color',default:'#3355cc'},color2:{type:'color',default:'#22337a'}},
-  init: function () {
-    const grid = new THREE.GridHelper(this.data.size,this.data.divisions,new THREE.Color(this.data.color1),new THREE.Color(this.data.color2));
-    grid.material.transparent=true; grid.material.opacity=0.55;
-    this.el.setObject3D('grid',grid);
-  }
-});
-
-// ── Button click handlers ──────────────────────────────────────────
-function triggerLDopa() {
-  const el = document.querySelector('#ldopa');
-  if (!el || el.dataset.busy==='true') return;
-  el.dataset.busy = 'true';
-  setStatus('L-DOPA flying into active site...');
-
-  const startPos = '-3.8 1.8 -3';
-  el.setAttribute('animation__fly',    {property:'position', to:'0 1.5 -4.3', dur:2000, easing:'easeInOutQuad'});
-  el.setAttribute('animation__shrink', {property:'scale',    to:'0.35 0.35 0.35', dur:2000, easing:'easeInOutQuad'});
-  el.setAttribute('animation__spin',   {property:'rotation', to:'0 720 0', dur:2000, easing:'easeInOutQuad'});
-
-  setTimeout(() => {
-    const g = document.querySelector('#binding-glow');
-    if (g) g.setAttribute('visible', true);
-    setStatus('✅ L-DOPA BOUND! Perfect fit into active site!');
-  }, 1900);
-
-  setTimeout(() => {
-    const g = document.querySelector('#binding-glow');
-    if (g) g.setAttribute('visible', false);
-    el.setAttribute('animation__reset',      {property:'position', to:startPos, dur:1100, easing:'easeInOutQuad'});
-    el.setAttribute('animation__resetscale', {property:'scale',    to:'1 1 1',  dur:1100});
-    el.setAttribute('animation__resetrot',   {property:'rotation', to:'0 0 0',  dur:1100});
-    setTimeout(() => { el.dataset.busy='false'; setStatus('Click a molecule or info button below ↓'); }, 1200);
-  }, 4200);
-}
-
-function triggerDDopa() {
-  const el = document.querySelector('#ddopa');
-  if (!el || el.dataset.busy==='true') return;
-  el.dataset.busy = 'true';
-  setStatus('D-DOPA approaching active site...');
-
-  const startPos = '3.8 1.8 -3';
-  el.setAttribute('animation__approach', {property:'position', to:'1 1.6 -4', dur:650, easing:'easeOutQuad'});
-
-  setTimeout(() => {
-    const f = document.querySelector('#repel-flash');
-    if (f) { f.setAttribute('visible',true); setTimeout(()=>f.setAttribute('visible',false),350); }
-    el.setAttribute('animation__bounce', {property:'position', to:'5.4 2.7 -1.8', dur:600, easing:'easeOutQuad'});
-    el.setAttribute('animation__shake',  {property:'rotation', to:'25 720 -25', dur:1000, easing:'easeOutQuad'});
-    setStatus('❌ D-DOPA REJECTED! Wrong shape — steric clash!');
-  }, 650);
-
-  setTimeout(() => {
-    el.setAttribute('animation__return',    {property:'position', to:startPos, dur:1100, easing:'easeInOutQuad'});
-    el.setAttribute('animation__returnrot', {property:'rotation', to:'0 0 0', dur:1100});
-    setTimeout(() => { el.dataset.busy='false'; setStatus('Click a molecule or info button below ↓'); }, 1200);
-  }, 2300);
-}
-
-function togglePanel(id) {
-  const panel = document.getElementById(id);
-  if (!panel) return;
-  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-}
-
-function setStatus(msg) {
-  const s = document.getElementById('status-msg');
-  if (s) s.textContent = msg;
-}
 </script>
 </head>
 <body>
-
-<!-- A-Frame VR Scene -->
-<a-scene background="color: #000010" vr-mode-ui="enabled: true">
+<a-scene background="color: #000010">
 
   <a-entity gradient-sky></a-entity>
   <a-entity starfield></a-entity>
 
-  <a-light type="ambient"     color="#556"    intensity="0.6"></a-light>
+  <a-light type="ambient" color="#556" intensity="0.6"></a-light>
   <a-light type="directional" color="#ffffff" intensity="0.85" position="3 6 4"></a-light>
-  <a-light type="point" color="#88aaff" intensity="0.6" position="0 4 -5"  distance="22"></a-light>
-  <a-light type="point" color="#ffaa66" intensity="0.4" position="-6 2 0"  distance="18"></a-light>
-  <a-light type="point" color="#ff66aa" intensity="0.4" position="6 2 0"   distance="18"></a-light>
+  <a-light type="point" color="#88aaff" intensity="0.6" position="0 4 -5" distance="22"></a-light>
+  <a-light type="point" color="#ffaa66" intensity="0.4" position="-6 2 0" distance="18"></a-light>
+  <a-light type="point" color="#ff66aa" intensity="0.4" position="6 2 0" distance="18"></a-light>
 
   <a-entity grid-floor position="0 0 -5"></a-entity>
 
   <a-entity id="rig" position="0 1.6 6">
-    <a-camera look-controls wasd-controls="acceleration:40" position="0 0 0"></a-camera>
+    <a-camera look-controls wasd-controls="acceleration: 40" position="0 0 0">
+      <a-cursor fuse="false" color="#ffff00" radius="0.01" position="0 0 -1"
+                raycaster="objects: .clickable; far: 40; recursive: true"
+                animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 200"
+                animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.5 0.5 0.5; dur: 100">
+      </a-cursor>
+    </a-camera>
   </a-entity>
 
-  <!-- Title -->
+  <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 40; recursive: true" line="color: #88ccff"></a-entity>
+  <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 40; recursive: true" line="color: #88ccff"></a-entity>
+
   <a-entity position="0 5.0 -3">
-    <a-text value="Stereochemistry &amp; Enzyme Binding" position="0 0.45 0" align="center" color="#ffffff" width="11"></a-text>
-    <a-text value="Why Shape Matters in Medicinal Chemistry"  position="0 -0.15 0" align="center" color="#aaccff" width="9"></a-text>
+    <a-text value="Stereochemistry &amp; Enzyme Binding"
+            position="0 0.45 0" align="center" color="#ffffff" width="11"></a-text>
+    <a-text value="Why Shape Matters in Medicinal Chemistry"
+            position="0 -0.15 0" align="center" color="#aaccff" width="9"></a-text>
   </a-entity>
 
-  <!-- Enzyme label -->
   <a-entity position="0 3.5 -5">
-    <a-plane width="5" height="0.75" color="#15154a" opacity="0.92" material="emissive:#2244aa;emissiveIntensity:0.4"></a-plane>
-    <a-text value="DOPA Decarboxylase Active Site - PDB: 1JS6" position="0 0 0.02" align="center" color="#ffffff" width="4.5"></a-text>
+    <a-plane width="5" height="0.75" color="#15154a" opacity="0.92"
+             material="emissive: #2244aa; emissiveIntensity: 0.4"></a-plane>
+    <a-text value="DOPA Decarboxylase Active Site - PDB: 1JS6"
+            position="0 0 0.02" align="center" color="#ffffff" width="4.5"></a-text>
   </a-entity>
 
-  <!-- Enzyme body -->
   <a-entity id="enzyme" position="0 1.5 -5">
-    <a-sphere radius="1.4" color="#888888" position="0 0 0"      material="metalness:0.15;roughness:0.7"></a-sphere>
-    <a-sphere radius="1.0" color="#7c7c80" position="1.0 0.4 0.2" material="metalness:0.15;roughness:0.7"></a-sphere>
-    <a-sphere radius="1.0" color="#909094" position="-1.0 -0.3 0.1" material="metalness:0.15;roughness:0.7"></a-sphere>
-    <a-sphere radius="0.85" color="#7a7a7e" position="0.4 1.1 0.0" material="metalness:0.15;roughness:0.7"></a-sphere>
-    <a-sphere radius="0.9"  color="#888c90" position="-0.4 -1.0 -0.2" material="metalness:0.15;roughness:0.7"></a-sphere>
-    <a-sphere radius="0.7"  color="#9a9a9e" position="0.0 0.0 -1.1"  material="metalness:0.15;roughness:0.7"></a-sphere>
-    <a-sphere radius="0.8"  color="#82828a" position="-0.8 0.7 -0.4" material="metalness:0.15;roughness:0.7"></a-sphere>
+    <a-sphere radius="1.4" color="#888888" position="0 0 0"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="1.0" color="#7c7c80" position="1.0 0.4 0.2"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="1.0" color="#909094" position="-1.0 -0.3 0.1"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.85" color="#7a7a7e" position="0.4 1.1 0.0"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.9" color="#888c90" position="-0.4 -1.0 -0.2"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.7" color="#9a9a9e" position="0.0 0.0 -1.1"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.8" color="#82828a" position="-0.8 0.7 -0.4"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+
     <a-entity position="0 0 1.0">
-      <a-sphere radius="0.7"  color="#3399ff" material="emissive:#2266ff;emissiveIntensity:0.65;metalness:0.2;roughness:0.4"></a-sphere>
-      <a-sphere radius="0.45" color="#1144aa" position="0 0 0.18" material="emissive:#1133aa;emissiveIntensity:0.5"></a-sphere>
-      <a-torus position="0 0 0.55" radius="0.6" radius-tubular="0.07" color="#5588dd" material="emissive:#3366cc;emissiveIntensity:0.5"></a-torus>
+      <a-sphere radius="0.7" color="#3399ff"
+                material="emissive: #2266ff; emissiveIntensity: 0.65; metalness: 0.2; roughness: 0.4"></a-sphere>
+      <a-sphere radius="0.45" color="#1144aa" position="0 0 0.18"
+                material="emissive: #1133aa; emissiveIntensity: 0.5"></a-sphere>
+      <a-torus position="0 0 0.55" rotation="0 0 0" radius="0.6" radius-tubular="0.07"
+               color="#5588dd"
+               material="emissive: #3366cc; emissiveIntensity: 0.5"></a-torus>
     </a-entity>
-    <a-text value="active site" position="0 -0.45 1.55" align="center" color="#aaddff" width="2.8"></a-text>
+
+    <a-text value="active site"
+            position="0 -0.45 1.55" align="center" color="#aaddff" width="2.8"></a-text>
+
+    <a-entity animation="property: rotation; to: 0 360 0; dur: 80000; loop: true; easing: linear"></a-entity>
+
     <a-sphere id="binding-glow" radius="0.85" position="0 0 1.0"
               color="#88ff88" opacity="0.5" visible="false"
-              material="emissive:#44ff44;emissiveIntensity:0.85;transparent:true"
-              animation="property:scale;from:1 1 1;to:1.4 1.4 1.4;dir:alternate;loop:true;dur:600"></a-sphere>
+              material="emissive: #44ff44; emissiveIntensity: 0.85; transparent: true"
+              animation="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; dir: alternate; loop: true; dur: 600"></a-sphere>
   </a-entity>
 
   <a-sphere id="repel-flash" position="0.6 1.6 -4.4" radius="0.55"
             color="#ff4422" opacity="0.65" visible="false"
-            material="emissive:#ff2200;emissiveIntensity:0.9;transparent:true"></a-sphere>
+            material="emissive: #ff2200; emissiveIntensity: 0.9; transparent: true"></a-sphere>
 
-  <!-- L-DOPA molecule -->
   <a-entity id="ldopa"
             position="-3.8 1.8 -3"
             scale="1.2 1.2 1.2"
-            dopa-molecule="chirality:L;carbonColor:#33dd33"
-            animation__hover="property:position;from:-3.8 1.75 -3;to:-3.8 1.85 -3;dir:alternate;loop:true;dur:2200;easing:easeInOutSine">
+            class="clickable"
+            ldopa-binding
+            dopa-molecule="chirality: L; carbonColor: #33dd33"
+            animation__hover="property: position; from: -3.8 1.75 -3; to: -3.8 1.85 -3; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine">
   </a-entity>
 
-  <!-- D-DOPA molecule -->
+  <a-entity id="ldopa-info-btn" position="-3.8 0.5 -3" class="clickable"
+            toggle-target="target: #ldopa-info">
+    <a-plane width="1.7" height="0.45" color="#1a4a1a" opacity="0.92"
+             material="emissive: #225522; emissiveIntensity: 0.5"></a-plane>
+    <a-text value="(i) Why active?"
+            position="0 0 0.02" align="center" color="#bbffbb" width="3.5"></a-text>
+  </a-entity>
+
+  <a-entity id="ldopa-info" position="-3.8 3.0 -3" visible="false">
+    <a-plane width="3.4" height="1.8" color="#0a2410" opacity="0.94"
+             material="emissive: #114422; emissiveIntensity: 0.3"></a-plane>
+    <a-text value="L-DOPA: The active isomer.&#10;&#10;The amino group (-NH2) is&#10;positioned correctly to bind&#10;the PLP cofactor and fit the&#10;enzyme's chiral pocket."
+            position="0 0 0.02" align="center" color="#cfffcf" width="3"
+            wrap-count="28" baseline="center"></a-text>
+  </a-entity>
+
   <a-entity id="ddopa"
             position="3.8 1.8 -3"
             scale="1.2 1.2 1.2"
-            dopa-molecule="chirality:D;carbonColor:#ee3333"
-            animation__hover="property:position;from:3.8 1.75 -3;to:3.8 1.85 -3;dir:alternate;loop:true;dur:2200;easing:easeInOutSine">
+            class="clickable"
+            ddopa-repel
+            dopa-molecule="chirality: D; carbonColor: #ee3333"
+            animation__hover="property: position; from: 3.8 1.75 -3; to: 3.8 1.85 -3; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine">
   </a-entity>
 
-  <!-- Info panels (in 3D space, for VR headset view) -->
-  <a-entity id="ldopa-info-3d" position="-3.8 3.2 -3" visible="false">
-    <a-plane width="3.4" height="1.8" color="#0a2410" opacity="0.94" material="emissive:#114422;emissiveIntensity:0.3"></a-plane>
-    <a-text value="L-DOPA: The active isomer.&#10;&#10;The -NH2 group is positioned&#10;correctly to bind the PLP&#10;cofactor and fit the enzyme's&#10;chiral pocket." position="0 0 0.02" align="center" color="#cfffcf" width="3" wrap-count="28" baseline="center"></a-text>
+  <a-entity id="ddopa-info-btn" position="3.8 0.5 -3" class="clickable"
+            toggle-target="target: #ddopa-info">
+    <a-plane width="1.7" height="0.45" color="#4a1a1a" opacity="0.92"
+             material="emissive: #552222; emissiveIntensity: 0.5"></a-plane>
+    <a-text value="(i) Why inactive?"
+            position="0 0 0.02" align="center" color="#ffbbbb" width="3.5"></a-text>
   </a-entity>
-  <a-entity id="ddopa-info-3d" position="3.8 3.2 -3" visible="false">
-    <a-plane width="3.4" height="1.8" color="#240a0a" opacity="0.94" material="emissive:#441111;emissiveIntensity:0.3"></a-plane>
-    <a-text value="D-DOPA: The inactive isomer.&#10;&#10;The flipped chiral center&#10;causes steric clashes —&#10;it cannot fit the active site." position="0 0 0.02" align="center" color="#ffcfcf" width="3" wrap-count="28" baseline="center"></a-text>
+
+  <a-entity id="ddopa-info" position="3.8 3.0 -3" visible="false">
+    <a-plane width="3.4" height="1.8" color="#240a0a" opacity="0.94"
+             material="emissive: #441111; emissiveIntensity: 0.3"></a-plane>
+    <a-text value="D-DOPA: The inactive isomer.&#10;&#10;The flipped chiral center causes&#10;steric clashes - it cannot fit&#10;the active site."
+            position="0 0 0.02" align="center" color="#ffcfcf" width="3"
+            wrap-count="28" baseline="center"></a-text>
+  </a-entity>
+
+  <a-entity position="0 0.45 0">
+    <a-text value="Click molecules to see binding. Click info panels for details. WASD + mouse to move."
+            align="center" color="#88aaff" width="6"></a-text>
   </a-entity>
 
 </a-scene>
-
-<!-- Crosshair -->
-<div id="crosshair"></div>
-
-<!-- HTML Overlay UI — always clickable, no raycaster needed -->
-<div id="ui-overlay">
-
-  <!-- L-DOPA button -->
-  <button class="mol-btn" id="btn-ldopa" onclick="triggerLDopa()">
-    🟢 Click L-DOPA to Bind
-  </button>
-
-  <!-- D-DOPA button -->
-  <button class="mol-btn" id="btn-ddopa" onclick="triggerDDopa()">
-    🔴 Click D-DOPA to Repel
-  </button>
-
-  <!-- Info buttons -->
-  <button class="mol-btn" id="btn-linfo" onclick="togglePanel('panel-linfo')">
-    ℹ️ Why is L-DOPA active?
-  </button>
-  <button class="mol-btn" id="btn-dinfo" onclick="togglePanel('panel-dinfo')">
-    ℹ️ Why is D-DOPA inactive?
-  </button>
-
-  <!-- Info panels -->
-  <div class="info-panel" id="panel-linfo">
-    <button class="close-btn" onclick="togglePanel('panel-linfo')">✕</button>
-    <h3 style="color:#88ff88">L-DOPA: Active Isomer</h3>
-    The <strong>-NH₂ amino group</strong> is correctly positioned to bind the <strong>PLP cofactor</strong> inside the enzyme's chiral pocket.<br><br>
-    This perfect 3D fit allows DOPA Decarboxylase to convert L-DOPA → Dopamine, which crosses the blood-brain barrier to treat Parkinson's disease.
-  </div>
-
-  <div class="info-panel" id="panel-dinfo">
-    <button class="close-btn" onclick="togglePanel('panel-dinfo')">✕</button>
-    <h3 style="color:#ff8888">D-DOPA: Inactive Isomer</h3>
-    The <strong>flipped chiral center (C*)</strong> means the -NH₂ group points the wrong way, causing <strong>steric clashes</strong> with the enzyme's active site walls.<br><br>
-    The enzyme physically cannot bind D-DOPA — this is why stereochemistry is critical in drug design.
-  </div>
-
-</div>
-
-<!-- Status bar -->
-<div id="status-msg">Click a molecule or info button ↑</div>
-
-<script>
-  // Sync info panels with 3D scene too (for VR headset)
-  function togglePanel(id) {
-    const panel = document.getElementById(id);
-    if (!panel) return;
-    const isOpen = panel.style.display === 'block';
-    panel.style.display = isOpen ? 'none' : 'block';
-    // Also show in 3D
-    const map = {'panel-linfo':'ldopa-info-3d','panel-dinfo':'ddopa-info-3d'};
-    const el3d = document.querySelector('#'+map[id]);
-    if (el3d) el3d.setAttribute('visible', !isOpen);
-  }
-</script>
 </body>
 </html>
