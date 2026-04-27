@@ -72,8 +72,6 @@ AFRAME.registerComponent('dopa-molecule', {
       s.setAttribute('radius', a.r);
       s.setAttribute('color', a.color);
       s.setAttribute('material', 'metalness: 0.15; roughness: 0.5');
-      s.classList.add('clickable');
-      s.addEventListener('click', (e) => { e.stopPropagation(); this.el.emit('click'); });
       this.el.appendChild(s);
       if (a.label) {
         const t = document.createElement('a-text');
@@ -96,8 +94,6 @@ AFRAME.registerComponent('dopa-molecule', {
       cyl.setAttribute('radius', 0.028);
       cyl.setAttribute('color', '#dddddd');
       cyl.setAttribute('material', 'metalness: 0.1; roughness: 0.6');
-      cyl.classList.add('clickable');
-      cyl.addEventListener('click', (e) => { e.stopPropagation(); this.el.emit('click'); });
       this.el.appendChild(cyl);
     });
 
@@ -201,10 +197,18 @@ AFRAME.registerComponent('ddopa-repel', {
 AFRAME.registerComponent('toggle-target', {
   schema: {target: {type: 'selector'}},
   init: function () {
-    this.el.addEventListener('click', () => {
+    const handler = () => {
       const t = this.data.target;
       if (!t) return;
       t.setAttribute('visible', !t.getAttribute('visible'));
+    };
+    this.el.addEventListener('click', handler);
+    // Also attach to all child elements so any click works
+    this.el.addEventListener('loaded', () => {
+      this.el.querySelectorAll('*').forEach(child => {
+        child.classList.add('clickable');
+        child.addEventListener('click', (e) => { e.stopPropagation(); handler(); });
+      });
     });
   }
 });
@@ -288,6 +292,36 @@ AFRAME.registerComponent('starfield', {
   }
 });
 </script>
+
+<style>
+#info-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 999;
+}
+.info-trigger {
+  position: absolute; pointer-events: all; cursor: pointer;
+  border: none; border-radius: 10px; padding: 10px 18px;
+  font-size: 14px; font-weight: bold; transition: transform 0.15s;
+}
+.info-trigger:hover { transform: scale(1.07); }
+#btn-linfo { left: 22%; top: 68%; background: rgba(20,74,20,0.95); color: #bbffbb; border: 1px solid #33dd33; }
+#btn-dinfo { right: 22%; top: 68%; background: rgba(74,20,20,0.95); color: #ffbbbb; border: 1px solid #ee3333; }
+.info-popup {
+  position: absolute; pointer-events: all; border-radius: 14px;
+  padding: 18px 22px; font-size: 14px; line-height: 1.65;
+  display: none; max-width: 240px; box-shadow: 0 0 30px rgba(0,0,0,0.8);
+}
+#popup-linfo { left: 12%; top: 18%; background: rgba(8,28,12,0.97); color: #cfffcf; border: 1px solid #33dd3366; }
+#popup-dinfo { right: 12%; top: 18%; background: rgba(28,8,8,0.97); color: #ffcfcf; border: 1px solid #ee333366; }
+.info-popup h3 { margin: 0 0 10px; font-size: 16px; }
+.close-x { float: right; background: none; border: none; color: inherit; font-size: 20px; cursor: pointer; }
+#hint-bar {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  background: rgba(10,10,40,0.88); color: #88aaff; padding: 9px 22px;
+  border-radius: 20px; font-size: 13px; pointer-events: none;
+  z-index: 1000; border: 1px solid #334488; white-space: nowrap;
+}
+</style>
 </head>
 <body>
 <a-scene background="color: #000010">
@@ -305,16 +339,16 @@ AFRAME.registerComponent('starfield', {
 
   <a-entity id="rig" position="0 1.6 6">
     <a-camera look-controls wasd-controls="acceleration: 40" position="0 0 0">
-      <a-cursor fuse="false" color="#ffff00" radius="0.01" position="0 0 -1"
-                raycaster="objects: .clickable; far: 40; recursive: true"
+      <a-cursor color="#ffffff"
+                raycaster="objects: .clickable; far: 40"
                 animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 200"
                 animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.5 0.5 0.5; dur: 100">
       </a-cursor>
     </a-camera>
   </a-entity>
 
-  <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 40; recursive: true" line="color: #88ccff"></a-entity>
-  <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 40; recursive: true" line="color: #88ccff"></a-entity>
+  <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 40" line="color: #88ccff"></a-entity>
+  <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 40" line="color: #88ccff"></a-entity>
 
   <a-entity position="0 5.0 -3">
     <a-text value="Stereochemistry &amp; Enzyme Binding"
@@ -330,41 +364,58 @@ AFRAME.registerComponent('starfield', {
             position="0 0 0.02" align="center" color="#ffffff" width="4.5"></a-text>
   </a-entity>
 
-  <a-entity id="enzyme" position="0 1.5 -5">
-    <a-sphere radius="1.4" color="#888888" position="0 0 0"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
-    <a-sphere radius="1.0" color="#7c7c80" position="1.0 0.4 0.2"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
-    <a-sphere radius="1.0" color="#909094" position="-1.0 -0.3 0.1"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
-    <a-sphere radius="0.85" color="#7a7a7e" position="0.4 1.1 0.0"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
-    <a-sphere radius="0.9" color="#888c90" position="-0.4 -1.0 -0.2"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
-    <a-sphere radius="0.7" color="#9a9a9e" position="0.0 0.0 -1.1"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
-    <a-sphere radius="0.8" color="#82828a" position="-0.8 0.7 -0.4"
-              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+  <!-- DOPA Decarboxylase - realistic ribbon-like structure (PDB: 1JS6) -->
+  <a-entity id="enzyme" position="0 1.5 -5"
+            animation="property: rotation; to: 0 360 0; dur: 80000; loop: true; easing: linear">
 
+    <!-- Subunit A - teal/green (top half, alpha helices) -->
+    <!-- Core helices -->
+    <a-torus-knot position="0.0  1.2  0.1" radius="0.9" radius-tubular="0.09" p="2" q="3" color="#009977" material="metalness:0.1;roughness:0.5"></a-torus-knot>
+    <a-torus position="-0.6  0.7 -0.3" rotation="70 20 0" radius="0.55" radius-tubular="0.08" color="#00aa88" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position=" 0.7  0.9  0.2" rotation="60 -30 10" radius="0.5" radius-tubular="0.07" color="#00bb99" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position="-0.2  1.5  0.0" rotation="80 10 -20" radius="0.45" radius-tubular="0.07" color="#009988" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position=" 0.4  1.8 -0.2" rotation="50 40 5" radius="0.4" radius-tubular="0.06" color="#00cc99" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position="-0.8  1.1  0.4" rotation="65 -15 15" radius="0.42" radius-tubular="0.065" color="#00aa77" material="metalness:0.1;roughness:0.5"></a-torus>
+    <!-- Beta sheets (flat boxes) -->
+    <a-box position=" 0.5  0.5  0.3" rotation="15 -20 5"  width="0.9" height="0.12" depth="0.55" color="#00bb88" material="metalness:0.05;roughness:0.6"></a-box>
+    <a-box position="-0.4  0.3  0.1" rotation="-10 25 -5" width="0.8" height="0.12" depth="0.5"  color="#009977" material="metalness:0.05;roughness:0.6"></a-box>
+    <a-box position=" 0.1  1.0  0.5" rotation="5 10 -8"   width="0.75" height="0.12" depth="0.45" color="#00cc88" material="metalness:0.05;roughness:0.6"></a-box>
+    <!-- Loops -->
+    <a-sphere position=" 1.0  1.3  0.0" radius="0.28" color="#00aa88" material="roughness:0.7"></a-sphere>
+    <a-sphere position="-0.9  0.5  0.3" radius="0.25" color="#009977" material="roughness:0.7"></a-sphere>
+    <a-sphere position=" 0.3  2.0 -0.1" radius="0.22" color="#00bb99" material="roughness:0.7"></a-sphere>
+    <a-sphere position="-0.5  1.7  0.4" radius="0.24" color="#00aa77" material="roughness:0.7"></a-sphere>
+
+    <!-- Subunit B - orange (bottom half) -->
+    <a-torus-knot position="0.1 -1.2 -0.1" radius="0.9" radius-tubular="0.09" p="2" q="3" color="#cc5500" material="metalness:0.1;roughness:0.5"></a-torus-knot>
+    <a-torus position=" 0.6 -0.7  0.3" rotation="70 -20 0"  radius="0.55" radius-tubular="0.08" color="#dd6600" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position="-0.7 -0.9 -0.2" rotation="60  30 10" radius="0.5"  radius-tubular="0.07" color="#cc5511" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position=" 0.2 -1.5  0.0" rotation="80 -10 20" radius="0.45" radius-tubular="0.07" color="#dd6611" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position="-0.4 -1.8  0.2" rotation="50 -40 -5" radius="0.4"  radius-tubular="0.06" color="#cc4400" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-torus position=" 0.8 -1.1 -0.4" rotation="65  15 15" radius="0.42" radius-tubular="0.065" color="#dd5500" material="metalness:0.1;roughness:0.5"></a-torus>
+    <a-box position="-0.5 -0.5 -0.3" rotation="-15  20 -5" width="0.9" height="0.12" depth="0.55" color="#dd6600" material="metalness:0.05;roughness:0.6"></a-box>
+    <a-box position=" 0.4 -0.3 -0.1" rotation="10 -25  5"  width="0.8" height="0.12" depth="0.5"  color="#cc5500" material="metalness:0.05;roughness:0.6"></a-box>
+    <a-box position="-0.1 -1.0 -0.5" rotation="-5 -10  8"  width="0.75" height="0.12" depth="0.45" color="#dd5511" material="metalness:0.05;roughness:0.6"></a-box>
+    <a-sphere position="-1.0 -1.3  0.0" radius="0.28" color="#dd6600" material="roughness:0.7"></a-sphere>
+    <a-sphere position=" 0.9 -0.5 -0.3" radius="0.25" color="#cc5500" material="roughness:0.7"></a-sphere>
+    <a-sphere position="-0.3 -2.0  0.1" radius="0.22" color="#dd5511" material="roughness:0.7"></a-sphere>
+    <a-sphere position=" 0.5 -1.7 -0.4" radius="0.24" color="#cc4400" material="roughness:0.7"></a-sphere>
+
+    <!-- PLP cofactor + active site pocket (center, between subunits) -->
     <a-entity position="0 0 1.0">
-      <a-sphere radius="0.7" color="#3399ff"
-                material="emissive: #2266ff; emissiveIntensity: 0.65; metalness: 0.2; roughness: 0.4"></a-sphere>
-      <a-sphere radius="0.45" color="#1144aa" position="0 0 0.18"
-                material="emissive: #1133aa; emissiveIntensity: 0.5"></a-sphere>
-      <a-torus position="0 0 0.55" rotation="0 0 0" radius="0.6" radius-tubular="0.07"
-               color="#5588dd"
-               material="emissive: #3366cc; emissiveIntensity: 0.5"></a-torus>
+      <a-sphere radius="0.55" color="#3399ff" material="emissive:#2266ff;emissiveIntensity:0.7;metalness:0.2;roughness:0.3"></a-sphere>
+      <a-sphere radius="0.18" color="#ffdd00" position=" 0.3  0.2 0.2" material="emissive:#ffaa00;emissiveIntensity:0.8"></a-sphere>
+      <a-sphere radius="0.18" color="#ffdd00" position="-0.3  0.1 0.15" material="emissive:#ffaa00;emissiveIntensity:0.8"></a-sphere>
+      <a-sphere radius="0.14" color="#ff5252" position=" 0.0 -0.3 0.2" material="emissive:#ff3333;emissiveIntensity:0.6"></a-sphere>
+      <a-torus position="0 0 0.4" rotation="0 0 0" radius="0.5" radius-tubular="0.055" color="#5588dd" material="emissive:#3366cc;emissiveIntensity:0.5"></a-torus>
     </a-entity>
 
-    <a-text value="active site"
-            position="0 -0.45 1.55" align="center" color="#aaddff" width="2.8"></a-text>
+    <a-text value="active site (PLP)" position="0 -0.55 1.55" align="center" color="#aaddff" width="2.8"></a-text>
 
-    <a-entity animation="property: rotation; to: 0 360 0; dur: 80000; loop: true; easing: linear"></a-entity>
-
-    <a-sphere id="binding-glow" radius="0.85" position="0 0 1.0"
+    <a-sphere id="binding-glow" radius="0.7" position="0 0 1.0"
               color="#88ff88" opacity="0.5" visible="false"
-              material="emissive: #44ff44; emissiveIntensity: 0.85; transparent: true"
-              animation="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; dir: alternate; loop: true; dur: 600"></a-sphere>
+              material="emissive:#44ff44;emissiveIntensity:0.85;transparent:true"
+              animation="property:scale;from:1 1 1;to:1.4 1.4 1.4;dir:alternate;loop:true;dur:600"></a-sphere>
   </a-entity>
 
   <a-sphere id="repel-flash" position="0.6 1.6 -4.4" radius="0.55"
@@ -427,5 +478,33 @@ AFRAME.registerComponent('starfield', {
   </a-entity>
 
 </a-scene>
+
+<div id="info-overlay">
+  <button class="info-trigger" id="btn-linfo" onclick="toggleInfo('popup-linfo')">ℹ️ Why is L-DOPA active?</button>
+  <button class="info-trigger" id="btn-dinfo" onclick="toggleInfo('popup-dinfo')">ℹ️ Why is D-DOPA inactive?</button>
+
+  <div class="info-popup" id="popup-linfo">
+    <button class="close-x" onclick="toggleInfo('popup-linfo')">✕</button>
+    <h3 style="color:#88ff88">L-DOPA — Active Isomer</h3>
+    The <strong>-NH₂ amino group</strong> is perfectly positioned to bind the <strong>PLP cofactor</strong> inside the enzyme's chiral pocket.<br><br>
+    This 3D fit lets DOPA Decarboxylase convert L-DOPA → <strong>Dopamine</strong>, which crosses the blood-brain barrier to treat Parkinson's disease.
+  </div>
+
+  <div class="info-popup" id="popup-dinfo">
+    <button class="close-x" onclick="toggleInfo('popup-dinfo')">✕</button>
+    <h3 style="color:#ff8888">D-DOPA — Inactive Isomer</h3>
+    The <strong>flipped chiral center (C*)</strong> points the -NH₂ group the wrong way, causing <strong>steric clashes</strong> with the active site walls.<br><br>
+    The enzyme <em>physically cannot bind</em> D-DOPA. This is why stereochemistry is critical in drug design.
+  </div>
+</div>
+
+<div id="hint-bar">🖱 WASD + mouse to move &nbsp;|&nbsp; Click ℹ️ buttons for info</div>
+
+<script>
+function toggleInfo(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+</script>
 </body>
 </html>
