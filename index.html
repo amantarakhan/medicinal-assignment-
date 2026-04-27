@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>L-DOPA Binding to DOPA Decarboxylase - VR</title>
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<style>body{margin:0;font-family:sans-serif;}</style>
+<script>
+function bondRotEuler(p1, p2) {
+  const dir = new THREE.Vector3(p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]).normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+  const euler = new THREE.Euler().setFromQuaternion(quat, 'XYZ');
+  return [
+    THREE.MathUtils.radToDeg(euler.x),
+    THREE.MathUtils.radToDeg(euler.y),
+    THREE.MathUtils.radToDeg(euler.z)
+  ];
+}
+function bondLength(p1, p2) {
+  const dx = p2[0]-p1[0], dy = p2[1]-p1[1], dz = p2[2]-p1[2];
+  return Math.sqrt(dx*dx + dy*dy + dz*dz);
+}
+function bondMid(p1, p2) {
+  return [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2];
+}
+
+AFRAME.registerComponent('dopa-molecule', {
+  schema: {
+    chirality: {type: 'string', default: 'L'},
+    carbonColor: {type: 'color', default: '#33dd33'}
+  },
+  init: function () {
+    const isL = this.data.chirality === 'L';
+    const cC = this.data.carbonColor;
+    const oC = '#ff5252';
+    const nC = '#5599ff';
+    const hC = '#ffffff';
+    const chiralC = '#ffd633';
+
+    const atoms = {
+      C1:    {pos: [0.45, 0.0, 0],   color: cC, r: 0.10},
+      C2:    {pos: [0.22, 0.40, 0],  color: cC, r: 0.10},
+      C3:    {pos: [-0.22, 0.40, 0], color: cC, r: 0.10},
+      C4:    {pos: [-0.45, 0.0, 0],  color: cC, r: 0.10},
+      C5:    {pos: [-0.22, -0.40,0], color: cC, r: 0.10},
+      C6:    {pos: [0.22, -0.40,0],  color: cC, r: 0.10},
+      O3:    {pos: [-0.40, 0.78, 0], color: oC, r: 0.09, label:'OH'},
+      O4:    {pos: [-0.85, 0.0, 0],  color: oC, r: 0.09, label:'OH'},
+      CH2:   {pos: [0.78, -0.40, 0], color: cC, r: 0.10},
+      Cstar: {pos: [1.10, -0.05, 0], color: chiralC, r: 0.12, label:'C*'},
+      NH2:   {pos: isL ? [1.05, 0.45, 0.20] : [1.05, 0.45, -0.20],
+              color: nC, r: 0.10, label:'NH2'},
+      Hstar: {pos: isL ? [1.05, 0.45, -0.20] : [1.05, 0.45, 0.20],
+              color: hC, r: 0.06, label:'H'},
+      COOH_C:{pos: [1.55, -0.30, 0], color: cC, r: 0.10},
+      COOH_O1:{pos:[1.85, 0.05, 0],  color: oC, r: 0.09, label:'COOH'},
+      COOH_O2:{pos:[1.65, -0.75, 0], color: oC, r: 0.09}
+    };
+
+    const bonds = [
+      ['C1','C2'],['C2','C3'],['C3','C4'],['C4','C5'],['C5','C6'],['C6','C1'],
+      ['C3','O3'],['C4','O4'],
+      ['C1','CH2'],['CH2','Cstar'],
+      ['Cstar','NH2'],['Cstar','Hstar'],['Cstar','COOH_C'],
+      ['COOH_C','COOH_O1'],['COOH_C','COOH_O2']
+    ];
+
+    Object.entries(atoms).forEach(([k, a]) => {
+      const s = document.createElement('a-sphere');
+      s.setAttribute('position', a.pos.join(' '));
+      s.setAttribute('radius', a.r);
+      s.setAttribute('color', a.color);
+      s.setAttribute('material', 'metalness: 0.15; roughness: 0.5');
+      this.el.appendChild(s);
+      if (a.label) {
+        const t = document.createElement('a-text');
+        t.setAttribute('value', a.label);
+        t.setAttribute('position', `${a.pos[0]} ${a.pos[1]+0.22} ${a.pos[2]+0.05}`);
+        t.setAttribute('align', 'center');
+        t.setAttribute('color', '#ffffff');
+        t.setAttribute('width', 1.4);
+        t.setAttribute('scale', '0.4 0.4 0.4');
+        this.el.appendChild(t);
+      }
+    });
+
+    bonds.forEach(([a, b]) => {
+      const p1 = atoms[a].pos, p2 = atoms[b].pos;
+      const cyl = document.createElement('a-cylinder');
+      cyl.setAttribute('position', bondMid(p1, p2).join(' '));
+      cyl.setAttribute('rotation', bondRotEuler(p1, p2).join(' '));
+      cyl.setAttribute('height', bondLength(p1, p2));
+      cyl.setAttribute('radius', 0.028);
+      cyl.setAttribute('color', '#dddddd');
+      cyl.setAttribute('material', 'metalness: 0.1; roughness: 0.6');
+      this.el.appendChild(cyl);
+    });
+
+    const lab = document.createElement('a-text');
+    lab.setAttribute('value', `${this.data.chirality}-DOPA`);
+    lab.setAttribute('position', '0.4 -1.05 0');
+    lab.setAttribute('align', 'center');
+    lab.setAttribute('color', cC);
+    lab.setAttribute('width', 5);
+    this.el.appendChild(lab);
+  }
+});
+
+AFRAME.registerComponent('ldopa-binding', {
+  init: function () {
+    const el = this.el;
+    const sp = el.getAttribute('position');
+    const startStr = `${sp.x} ${sp.y} ${sp.z}`;
+    let busy = false;
+    el.addEventListener('click', function () {
+      if (busy) return;
+      busy = true;
+      el.setAttribute('animation__fly', {
+        property: 'position', to: '0 1.5 -4.3',
+        dur: 2000, easing: 'easeInOutQuad'
+      });
+      el.setAttribute('animation__shrink', {
+        property: 'scale', to: '0.35 0.35 0.35',
+        dur: 2000, easing: 'easeInOutQuad'
+      });
+      el.setAttribute('animation__spin', {
+        property: 'rotation', to: '0 720 0',
+        dur: 2000, easing: 'easeInOutQuad'
+      });
+      setTimeout(() => {
+        const g = document.querySelector('#binding-glow');
+        if (g) g.setAttribute('visible', true);
+      }, 1900);
+      setTimeout(() => {
+        const g = document.querySelector('#binding-glow');
+        if (g) g.setAttribute('visible', false);
+        el.setAttribute('animation__reset', {
+          property: 'position', to: startStr,
+          dur: 1100, easing: 'easeInOutQuad'
+        });
+        el.setAttribute('animation__resetscale', {
+          property: 'scale', to: '1 1 1', dur: 1100
+        });
+        el.setAttribute('animation__resetrot', {
+          property: 'rotation', to: '0 0 0', dur: 1100
+        });
+        setTimeout(() => { busy = false; }, 1200);
+      }, 4200);
+    });
+  }
+});
+
+AFRAME.registerComponent('ddopa-repel', {
+  init: function () {
+    const el = this.el;
+    const sp = el.getAttribute('position');
+    const startStr = `${sp.x} ${sp.y} ${sp.z}`;
+    let busy = false;
+    el.addEventListener('click', function () {
+      if (busy) return;
+      busy = true;
+      el.setAttribute('animation__approach', {
+        property: 'position', to: '1 1.6 -4',
+        dur: 650, easing: 'easeOutQuad'
+      });
+      setTimeout(() => {
+        const f = document.querySelector('#repel-flash');
+        if (f) {
+          f.setAttribute('visible', true);
+          setTimeout(() => f.setAttribute('visible', false), 350);
+        }
+        el.setAttribute('animation__bounce', {
+          property: 'position',
+          to: `${sp.x + 1.6} ${sp.y + 0.9} ${sp.z + 1.2}`,
+          dur: 600, easing: 'easeOutQuad'
+        });
+        el.setAttribute('animation__shake', {
+          property: 'rotation', to: '25 720 -25',
+          dur: 1000, easing: 'easeOutQuad'
+        });
+      }, 650);
+      setTimeout(() => {
+        el.setAttribute('animation__return', {
+          property: 'position', to: startStr,
+          dur: 1100, easing: 'easeInOutQuad'
+        });
+        el.setAttribute('animation__returnrot', {
+          property: 'rotation', to: '0 0 0', dur: 1100
+        });
+        setTimeout(() => { busy = false; }, 1200);
+      }, 2300);
+    });
+  }
+});
+
+AFRAME.registerComponent('toggle-target', {
+  schema: {target: {type: 'selector'}},
+  init: function () {
+    this.el.addEventListener('click', () => {
+      const t = this.data.target;
+      if (!t) return;
+      t.setAttribute('visible', !t.getAttribute('visible'));
+    });
+  }
+});
+
+AFRAME.registerComponent('grid-floor', {
+  schema: {
+    size: {default: 50}, divisions: {default: 50},
+    color1: {type: 'color', default: '#3355cc'},
+    color2: {type: 'color', default: '#22337a'}
+  },
+  init: function () {
+    const grid = new THREE.GridHelper(
+      this.data.size, this.data.divisions,
+      new THREE.Color(this.data.color1),
+      new THREE.Color(this.data.color2)
+    );
+    grid.material.transparent = true;
+    grid.material.opacity = 0.55;
+    this.el.setObject3D('grid', grid);
+  }
+});
+
+AFRAME.registerComponent('gradient-sky', {
+  schema: {
+    topColor: {type: 'color', default: '#1a1a5a'},
+    bottomColor: {type: 'color', default: '#000010'}
+  },
+  init: function () {
+    const geometry = new THREE.SphereGeometry(500, 32, 16);
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor:    {value: new THREE.Color(this.data.topColor)},
+        bottomColor: {value: new THREE.Color(this.data.bottomColor)},
+        offset:      {value: 0},
+        exponent:    {value: 0.7}
+      },
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = wp.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition + offset).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor,
+                              max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }`,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    const sky = new THREE.Mesh(geometry, material);
+    this.el.setObject3D('mesh', sky);
+  }
+});
+
+AFRAME.registerComponent('starfield', {
+  schema: {count: {default: 250}},
+  init: function () {
+    const group = new THREE.Group();
+    for (let i = 0; i < this.data.count; i++) {
+      const r = 120 + Math.random() * 200;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = Math.abs(r * Math.cos(phi)) * 0.8 + 5;
+      const z = r * Math.sin(phi) * Math.sin(theta);
+      const g = new THREE.SphereGeometry(0.3 + Math.random() * 0.7, 5, 5);
+      const m = new THREE.MeshBasicMaterial({color: 0xffffff});
+      const star = new THREE.Mesh(g, m);
+      star.position.set(x, y, z);
+      group.add(star);
+    }
+    this.el.setObject3D('stars', group);
+  }
+});
+</script>
+</head>
+<body>
+<a-scene background="color: #000010">
+
+  <a-entity gradient-sky></a-entity>
+  <a-entity starfield></a-entity>
+
+  <a-light type="ambient" color="#556" intensity="0.6"></a-light>
+  <a-light type="directional" color="#ffffff" intensity="0.85" position="3 6 4"></a-light>
+  <a-light type="point" color="#88aaff" intensity="0.6" position="0 4 -5" distance="22"></a-light>
+  <a-light type="point" color="#ffaa66" intensity="0.4" position="-6 2 0" distance="18"></a-light>
+  <a-light type="point" color="#ff66aa" intensity="0.4" position="6 2 0" distance="18"></a-light>
+
+  <a-entity grid-floor position="0 0 -5"></a-entity>
+
+  <a-entity id="rig" position="0 1.6 6">
+    <a-camera look-controls wasd-controls="acceleration: 40" position="0 0 0">
+      <a-cursor color="#ffffff"
+                raycaster="objects: .clickable; far: 40"
+                animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 200"
+                animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.5 0.5 0.5; dur: 100">
+      </a-cursor>
+    </a-camera>
+  </a-entity>
+
+  <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 40" line="color: #88ccff"></a-entity>
+  <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 40" line="color: #88ccff"></a-entity>
+
+  <a-entity position="0 5.0 -3">
+    <a-text value="Stereochemistry &amp; Enzyme Binding"
+            position="0 0.45 0" align="center" color="#ffffff" width="11"></a-text>
+    <a-text value="Why Shape Matters in Medicinal Chemistry"
+            position="0 -0.15 0" align="center" color="#aaccff" width="9"></a-text>
+  </a-entity>
+
+  <a-entity position="0 3.5 -5">
+    <a-plane width="5" height="0.75" color="#15154a" opacity="0.92"
+             material="emissive: #2244aa; emissiveIntensity: 0.4"></a-plane>
+    <a-text value="DOPA Decarboxylase Active Site - PDB: 1JS6"
+            position="0 0 0.02" align="center" color="#ffffff" width="4.5"></a-text>
+  </a-entity>
+
+  <a-entity id="enzyme" position="0 1.5 -5">
+    <a-sphere radius="1.4" color="#888888" position="0 0 0"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="1.0" color="#7c7c80" position="1.0 0.4 0.2"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="1.0" color="#909094" position="-1.0 -0.3 0.1"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.85" color="#7a7a7e" position="0.4 1.1 0.0"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.9" color="#888c90" position="-0.4 -1.0 -0.2"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.7" color="#9a9a9e" position="0.0 0.0 -1.1"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+    <a-sphere radius="0.8" color="#82828a" position="-0.8 0.7 -0.4"
+              material="metalness: 0.15; roughness: 0.7"></a-sphere>
+
+    <a-entity position="0 0 1.0">
+      <a-sphere radius="0.7" color="#3399ff"
+                material="emissive: #2266ff; emissiveIntensity: 0.65; metalness: 0.2; roughness: 0.4"></a-sphere>
+      <a-sphere radius="0.45" color="#1144aa" position="0 0 0.18"
+                material="emissive: #1133aa; emissiveIntensity: 0.5"></a-sphere>
+      <a-torus position="0 0 0.55" rotation="0 0 0" radius="0.6" radius-tubular="0.07"
+               color="#5588dd"
+               material="emissive: #3366cc; emissiveIntensity: 0.5"></a-torus>
+    </a-entity>
+
+    <a-text value="active site"
+            position="0 -0.45 1.55" align="center" color="#aaddff" width="2.8"></a-text>
+
+    <a-entity animation="property: rotation; to: 0 360 0; dur: 80000; loop: true; easing: linear"></a-entity>
+
+    <a-sphere id="binding-glow" radius="0.85" position="0 0 1.0"
+              color="#88ff88" opacity="0.5" visible="false"
+              material="emissive: #44ff44; emissiveIntensity: 0.85; transparent: true"
+              animation="property: scale; from: 1 1 1; to: 1.4 1.4 1.4; dir: alternate; loop: true; dur: 600"></a-sphere>
+  </a-entity>
+
+  <a-sphere id="repel-flash" position="0.6 1.6 -4.4" radius="0.55"
+            color="#ff4422" opacity="0.65" visible="false"
+            material="emissive: #ff2200; emissiveIntensity: 0.9; transparent: true"></a-sphere>
+
+  <a-entity id="ldopa"
+            position="-3.8 1.8 -3"
+            scale="1.2 1.2 1.2"
+            class="clickable"
+            ldopa-binding
+            dopa-molecule="chirality: L; carbonColor: #33dd33"
+            animation__hover="property: position; from: -3.8 1.75 -3; to: -3.8 1.85 -3; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine">
+  </a-entity>
+
+  <a-entity id="ldopa-info-btn" position="-3.8 0.5 -3" class="clickable"
+            toggle-target="target: #ldopa-info">
+    <a-plane width="1.7" height="0.45" color="#1a4a1a" opacity="0.92"
+             material="emissive: #225522; emissiveIntensity: 0.5"></a-plane>
+    <a-text value="(i) Why active?"
+            position="0 0 0.02" align="center" color="#bbffbb" width="3.5"></a-text>
+  </a-entity>
+
+  <a-entity id="ldopa-info" position="-3.8 3.0 -3" visible="false">
+    <a-plane width="3.4" height="1.8" color="#0a2410" opacity="0.94"
+             material="emissive: #114422; emissiveIntensity: 0.3"></a-plane>
+    <a-text value="L-DOPA: The active isomer.&#10;&#10;The amino group (-NH2) is&#10;positioned correctly to bind&#10;the PLP cofactor and fit the&#10;enzyme's chiral pocket."
+            position="0 0 0.02" align="center" color="#cfffcf" width="3"
+            wrap-count="28" baseline="center"></a-text>
+  </a-entity>
+
+  <a-entity id="ddopa"
+            position="3.8 1.8 -3"
+            scale="1.2 1.2 1.2"
+            class="clickable"
+            ddopa-repel
+            dopa-molecule="chirality: D; carbonColor: #ee3333"
+            animation__hover="property: position; from: 3.8 1.75 -3; to: 3.8 1.85 -3; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine">
+  </a-entity>
+
+  <a-entity id="ddopa-info-btn" position="3.8 0.5 -3" class="clickable"
+            toggle-target="target: #ddopa-info">
+    <a-plane width="1.7" height="0.45" color="#4a1a1a" opacity="0.92"
+             material="emissive: #552222; emissiveIntensity: 0.5"></a-plane>
+    <a-text value="(i) Why inactive?"
+            position="0 0 0.02" align="center" color="#ffbbbb" width="3.5"></a-text>
+  </a-entity>
+
+  <a-entity id="ddopa-info" position="3.8 3.0 -3" visible="false">
+    <a-plane width="3.4" height="1.8" color="#240a0a" opacity="0.94"
+             material="emissive: #441111; emissiveIntensity: 0.3"></a-plane>
+    <a-text value="D-DOPA: The inactive isomer.&#10;&#10;The flipped chiral center causes&#10;steric clashes - it cannot fit&#10;the active site."
+            position="0 0 0.02" align="center" color="#ffcfcf" width="3"
+            wrap-count="28" baseline="center"></a-text>
+  </a-entity>
+
+  <a-entity position="0 0.45 0">
+    <a-text value="Click molecules to see binding. Click info panels for details. WASD + mouse to move."
+            align="center" color="#88aaff" width="6"></a-text>
+  </a-entity>
+
+</a-scene>
+</body>
+</html>
