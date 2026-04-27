@@ -231,64 +231,118 @@ AFRAME.registerComponent('grid-floor', {
   }
 });
 
-AFRAME.registerComponent('gradient-sky', {
-  schema: {
-    topColor: {type: 'color', default: '#1a1a5a'},
-    bottomColor: {type: 'color', default: '#000010'}
-  },
-  init: function () {
-    const geometry = new THREE.SphereGeometry(500, 32, 16);
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        topColor:    {value: new THREE.Color(this.data.topColor)},
-        bottomColor: {value: new THREE.Color(this.data.bottomColor)},
-        offset:      {value: 0},
-        exponent:    {value: 0.7}
-      },
-      vertexShader: `
-        varying vec3 vWorldPosition;
-        void main() {
-          vec4 wp = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = wp.xyz;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }`,
-      fragmentShader: `
-        uniform vec3 topColor;
-        uniform vec3 bottomColor;
-        uniform float offset;
-        uniform float exponent;
-        varying vec3 vWorldPosition;
-        void main() {
-          float h = normalize(vWorldPosition + offset).y;
-          gl_FragColor = vec4(mix(bottomColor, topColor,
-                              max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
-        }`,
-      side: THREE.BackSide,
-      depthWrite: false
-    });
-    const sky = new THREE.Mesh(geometry, material);
-    this.el.setObject3D('mesh', sky);
-  }
-});
+
 
 AFRAME.registerComponent('starfield', {
-  schema: {count: {default: 250}},
+  schema: {count: {default: 600}},
   init: function () {
     const group = new THREE.Group();
     for (let i = 0; i < this.data.count; i++) {
-      const r = 120 + Math.random() * 200;
+      const r = 80 + Math.random() * 300;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
       const x = r * Math.sin(phi) * Math.cos(theta);
-      const y = Math.abs(r * Math.cos(phi)) * 0.8 + 5;
+      const y = r * Math.cos(phi);
       const z = r * Math.sin(phi) * Math.sin(theta);
-      const g = new THREE.SphereGeometry(0.3 + Math.random() * 0.7, 5, 5);
-      const m = new THREE.MeshBasicMaterial({color: 0xffffff});
+      const size = Math.random();
+      const color = size > 0.85 ? 0xffd6aa : size > 0.7 ? 0xaaccff : 0xffffff;
+      const g = new THREE.SphereGeometry(0.2 + Math.random() * 0.9, 5, 5);
+      const m = new THREE.MeshBasicMaterial({color});
       const star = new THREE.Mesh(g, m);
       star.position.set(x, y, z);
       group.add(star);
     }
     this.el.setObject3D('stars', group);
+  }
+});
+
+AFRAME.registerComponent('space-objects', {
+  init: function () {
+    const group = new THREE.Group();
+
+    // Sun - bright yellow/white far away
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(8, 16, 16),
+      new THREE.MeshBasicMaterial({color: 0xfffaaa})
+    );
+    sun.position.set(120, 40, -200);
+    group.add(sun);
+    // Sun glow
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(12, 16, 16),
+      new THREE.MeshBasicMaterial({color: 0xffee55, transparent: true, opacity: 0.18})
+    );
+    glow.position.copy(sun.position);
+    group.add(glow);
+
+    // Planet 1 - blue/teal ringed planet (left)
+    const p1 = new THREE.Mesh(
+      new THREE.SphereGeometry(5, 20, 20),
+      new THREE.MeshBasicMaterial({color: 0x3399cc})
+    );
+    p1.position.set(-90, 15, -130);
+    group.add(p1);
+    // Ring
+    const ring1 = new THREE.Mesh(
+      new THREE.TorusGeometry(8, 0.5, 8, 40),
+      new THREE.MeshBasicMaterial({color: 0x66bbdd, transparent: true, opacity: 0.6})
+    );
+    ring1.position.copy(p1.position);
+    ring1.rotation.x = Math.PI / 3;
+    group.add(ring1);
+
+    // Planet 2 - orange/red (right)
+    const p2 = new THREE.Mesh(
+      new THREE.SphereGeometry(4, 20, 20),
+      new THREE.MeshBasicMaterial({color: 0xcc5522})
+    );
+    p2.position.set(110, -10, -150);
+    group.add(p2);
+
+    // Planet 3 - purple small (top)
+    const p3 = new THREE.Mesh(
+      new THREE.SphereGeometry(2.5, 16, 16),
+      new THREE.MeshBasicMaterial({color: 0x9944cc})
+    );
+    p3.position.set(-30, 60, -120);
+    group.add(p3);
+
+    // Moon near planet 1
+    const moon = new THREE.Mesh(
+      new THREE.SphereGeometry(1.2, 10, 10),
+      new THREE.MeshBasicMaterial({color: 0xaaaaaa})
+    );
+    moon.position.set(-80, 20, -130);
+    group.add(moon);
+
+    // Nebula clouds (soft glowing blobs)
+    const nebulaColors = [0x220044, 0x001133, 0x002211, 0x220011];
+    for (let i = 0; i < 8; i++) {
+      const nb = new THREE.Mesh(
+        new THREE.SphereGeometry(18 + Math.random()*15, 8, 8),
+        new THREE.MeshBasicMaterial({
+          color: nebulaColors[i % nebulaColors.length],
+          transparent: true, opacity: 0.13 + Math.random()*0.1
+        })
+      );
+      const angle = (i / 8) * Math.PI * 2;
+      nb.position.set(Math.cos(angle)*160, (Math.random()-0.5)*60, Math.sin(angle)*160 - 80);
+      group.add(nb);
+    }
+
+    // Asteroid belt dots
+    for (let i = 0; i < 60; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const rad = 55 + Math.random() * 20;
+      const ast = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3 + Math.random()*0.6, 5, 5),
+        new THREE.MeshBasicMaterial({color: 0x887766})
+      );
+      ast.position.set(Math.cos(angle)*rad, (Math.random()-0.5)*4 - 3, Math.sin(angle)*rad - 60);
+      group.add(ast);
+    }
+
+    this.el.setObject3D('space', group);
   }
 });
 </script>
@@ -351,10 +405,11 @@ AFRAME.registerComponent('starfield', {
 </style>
 </head>
 <body>
-<a-scene background="color: #000010">
+<a-scene background="color: #000005">
 
-  <a-entity gradient-sky></a-entity>
+  <a-sky color="#000005"></a-sky>
   <a-entity starfield></a-entity>
+  <a-entity space-objects></a-entity>
 
   <a-light type="ambient" color="#556" intensity="0.6"></a-light>
   <a-light type="directional" color="#ffffff" intensity="0.85" position="3 6 4"></a-light>
@@ -458,21 +513,7 @@ AFRAME.registerComponent('starfield', {
             animation__hover="property: position; from: -3.8 1.75 -3; to: -3.8 1.85 -3; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine">
   </a-entity>
 
-  <a-entity id="ldopa-info-btn" position="-3.8 0.5 -3" class="clickable"
-            toggle-target="target: #ldopa-info">
-    <a-plane width="1.7" height="0.45" color="#1a4a1a" opacity="0.92"
-             material="emissive: #225522; emissiveIntensity: 0.5"></a-plane>
-    <a-text value="(i) Why active?"
-            position="0 0 0.02" align="center" color="#bbffbb" width="3.5"></a-text>
-  </a-entity>
 
-  <a-entity id="ldopa-info" position="-3.8 3.0 -3" visible="false">
-    <a-plane width="3.4" height="1.8" color="#0a2410" opacity="0.94"
-             material="emissive: #114422; emissiveIntensity: 0.3"></a-plane>
-    <a-text value="L-DOPA: The active isomer.&#10;&#10;The amino group (-NH2) is&#10;positioned correctly to bind&#10;the PLP cofactor and fit the&#10;enzyme's chiral pocket."
-            position="0 0 0.02" align="center" color="#cfffcf" width="3"
-            wrap-count="28" baseline="center"></a-text>
-  </a-entity>
 
   <a-entity id="ddopa"
             position="3.8 1.8 -3"
@@ -483,26 +524,9 @@ AFRAME.registerComponent('starfield', {
             animation__hover="property: position; from: 3.8 1.75 -3; to: 3.8 1.85 -3; dir: alternate; loop: true; dur: 2200; easing: easeInOutSine">
   </a-entity>
 
-  <a-entity id="ddopa-info-btn" position="3.8 0.5 -3" class="clickable"
-            toggle-target="target: #ddopa-info">
-    <a-plane width="1.7" height="0.45" color="#4a1a1a" opacity="0.92"
-             material="emissive: #552222; emissiveIntensity: 0.5"></a-plane>
-    <a-text value="(i) Why inactive?"
-            position="0 0 0.02" align="center" color="#ffbbbb" width="3.5"></a-text>
-  </a-entity>
 
-  <a-entity id="ddopa-info" position="3.8 3.0 -3" visible="false">
-    <a-plane width="3.4" height="1.8" color="#240a0a" opacity="0.94"
-             material="emissive: #441111; emissiveIntensity: 0.3"></a-plane>
-    <a-text value="D-DOPA: The inactive isomer.&#10;&#10;The flipped chiral center causes&#10;steric clashes - it cannot fit&#10;the active site."
-            position="0 0 0.02" align="center" color="#ffcfcf" width="3"
-            wrap-count="28" baseline="center"></a-text>
-  </a-entity>
 
-  <a-entity position="0 0.45 0">
-    <a-text value="Click molecules to see binding. Click info panels for details. WASD + mouse to move."
-            align="center" color="#88aaff" width="6"></a-text>
-  </a-entity>
+
 
 </a-scene>
 
@@ -528,7 +552,7 @@ AFRAME.registerComponent('starfield', {
 <button id="btn-ldopa-click" onclick="triggerLDopa()">🟢 Bind L-DOPA</button>
 <button id="btn-ddopa-click" onclick="triggerDDopa()">🔴 Repel D-DOPA</button>
 <div id="status-bar"></div>
-<div id="hint-bar">🖱 WASD + mouse to move &nbsp;|&nbsp; Use buttons above to interact</div>
+<div id="hint-bar">🚀 WASD + mouse to explore space &nbsp;|&nbsp; Use buttons to interact</div>
 
 <script>
 function toggleInfo(id) {
